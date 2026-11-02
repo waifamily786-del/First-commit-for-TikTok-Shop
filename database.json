@@ -1,0 +1,28 @@
+{
+    "admin_chat_ids": [
+        5797724379
+    ],
+    "products": [],
+    "shipping_options": [
+        {
+            "id": "royal",
+            "name": "Royal",
+            "requires_gate": false
+        },
+        {
+            "id": "kargate",
+            "name": "ကားဂိတ်",
+            "requires_gate": true
+        }
+    ],
+    "payment_methods": [
+        {
+            "id": "kbzpay",
+            "name": "KBZ Pay",
+            "logo": "/static/kpay.jpg",
+            "qr": "/static/qr.jpg",
+            "phone": "09664994195",
+            "account_name": "Thura"
+        }
+    ]
+}
