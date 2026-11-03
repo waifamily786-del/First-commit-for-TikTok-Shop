@@ -39,6 +39,7 @@ def load_db():
     if not os.path.exists(DB_FILE):
         initial_data = {
             "admin_chat_ids": [],
+            "categories": [{"id": "all", "name": "General"}],
             "products": [],
             "shipping_options": [
                 {"id": "royal", "name": "Royal", "requires_gate": False},
@@ -58,7 +59,10 @@ def load_db():
         save_db(initial_data)
         return initial_data
     with open(DB_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+        if "categories" not in data:
+            data["categories"] = [{"id": "all", "name": "General"}]
+        return data
 
 def save_db(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
@@ -164,34 +168,24 @@ def generate_order_pdf(order_data: dict, pdf_path: str):
 
 # ================= TELEGRAM BOT HANDLERS =================
 (
-    ASK_USERNAME,
-    ASK_PASSWORD,
-    MAIN_MENU,
-    PROD_PHOTO,
-    PROD_NAME,
-    PROD_PRICE,
-    SHIP_NAME,
-    PAY_NAME,
-    PAY_LOGO,
-    DELETE_PROD,
-) = range(10)
+    ASK_USERNAME, ASK_PASSWORD, MAIN_MENU,
+    PROD_PHOTO, PROD_NAME, PROD_INFO, PROD_CAT, PROD_PRICE,
+    ADD_CAT, MANAGE_PROD_SELECT, MANAGE_PROD_ACTION, 
+    EDIT_PROD_NAME, EDIT_PROD_INFO,
+    SHIP_NAME, PAY_NAME, PAY_LOGO,
+) = range(16)
 
-MENU_KEYBOARD = ReplyKeyboardMarkup(
+MAIN_KEYBOARD = ReplyKeyboardMarkup(
     [
-        ["1. Product တင်မည်"],
-        ["2. Shipping Option အသစ်တိုးရန်"],
-        ["3. Payment Add လုပ်ရန်"],
-        ["4. Product ဖျက်မည်"],
+        ["1. Product အသစ်တင်ရန်", "2. Category အသစ်တိုးရန်"],
+        ["3. Product စီမံရန် (ပြင်/ဖျက်/Stock)"],
+        ["4. Shipping Option တိုးရန်", "5. Payment Add လုပ်ရန်"],
     ],
     resize_keyboard=True,
 )
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🔐 Master Admin Panel သို့ ဝင်ရောက်ရန် **Username** ရိုက်ထည့်ပေးပါ -",
-        parse_mode="Markdown",
-        reply_markup=ReplyKeyboardRemove(),
-    )
+    await update.message.reply_text("🔐 Master Admin Panel သို့ ဝင်ရောက်ရန် **Username** ရိုက်ထည့်ပေးပါ -", parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
     return ASK_USERNAME
 
 async def check_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -210,10 +204,7 @@ async def check_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if chat_id not in db["admin_chat_ids"]:
             db["admin_chat_ids"].append(chat_id)
             save_db(db)
-        await update.message.reply_text(
-            "✅ Login အောင်မြင်ပါပြီ။ လုပ်ဆောင်လိုသည်ကို ရွေးချယ်ပါ -",
-            reply_markup=MENU_KEYBOARD,
-        )
+        await update.message.reply_text("✅ Login အောင်မြင်ပါပြီ။ လုပ်ဆောင်လိုသည်ကို ရွေးချယ်ပါ -", reply_markup=MAIN_KEYBOARD)
         return MAIN_MENU
     await update.message.reply_text("❌ Password မှားယွင်းနေပါသည်။ ပြန်လည်ရိုက်ထည့်ပါ -")
     return ASK_PASSWORD
@@ -221,166 +212,178 @@ async def check_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text.strip()
     if choice.startswith("1"):
-        await update.message.reply_text("📸 **Product ပုံ ပို့ပေးပါ** (White background ပုံပို့ပေးပါက အလိုအလျောက် Background ဖျောက်ပေးပါမည်) -", parse_mode="Markdown")
+        await update.message.reply_text("📸 **Product ပုံ ပို့ပေးပါ** (White background) -", parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
         return PROD_PHOTO
     elif choice.startswith("2"):
-        await update.message.reply_text("🚚 အသစ်တိုးမည့် **Shipping Option Name** ကို ရိုက်ထည့်ပေးပါ -", parse_mode="Markdown")
-        return SHIP_NAME
+        await update.message.reply_text("📂 အသစ်တိုးမည့် **Category Name** ကို ရိုက်ထည့်ပေးပါ -", parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
+        return ADD_CAT
     elif choice.startswith("3"):
-        await update.message.reply_text("💳 အသစ်ထည့်မည့် **Payment အမည်** ကို ရိုက်ထည့်ပေးပါ -", parse_mode="Markdown")
-        return PAY_NAME
-    elif choice.startswith("4"):
         db = load_db()
         if not db["products"]:
-            await update.message.reply_text("❌ လက်ရှိတွင် ဖျက်စရာ Product မရှိသေးပါ။", reply_markup=MENU_KEYBOARD)
+            await update.message.reply_text("❌ စီမံရန် Product မရှိသေးပါ။", reply_markup=MAIN_KEYBOARD)
             return MAIN_MENU
-        
-        msg = "🗑 **ဖျက်လိုသော Product ၏ နံပါတ်ကို ရိုက်ထည့်ပါ**\n\n"
+        msg = "⚙️ **စီမံလိုသော Product ၏ နံပါတ်ကို ရိုက်ထည့်ပါ**\n\n"
         for i, p in enumerate(db["products"]):
-            msg += f"{i+1}. {p['name']} ({p['price']:,} Ks)\n"
-        msg += "\n(မဖျက်လိုပါက `cancel` ဟု ရိုက်ထည့်နိုင်ပါသည်)"
-        
-        await update.message.reply_text(msg, parse_mode="Markdown")
-        return DELETE_PROD
+            status = "[🔴 Out of Stock]" if p.get("out_of_stock") else "[🟢 In Stock]"
+            msg += f"{i+1}. {p['name']} {status}\n"
+        msg += "\n(မလုပ်တော့ပါက `cancel` ဟု ရိုက်ထည့်ပါ)"
+        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
+        return MANAGE_PROD_SELECT
+    elif choice.startswith("4"):
+        await update.message.reply_text("🚚 အသစ်တိုးမည့် **Shipping Option Name** ကို ရိုက်ထည့်ပေးပါ -", parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
+        return SHIP_NAME
+    elif choice.startswith("5"):
+        await update.message.reply_text("💳 အသစ်ထည့်မည့် **Payment အမည်** ကို ရိုက်ထည့်ပေးပါ -", parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
+        return PAY_NAME
     else:
-        await update.message.reply_text("မီနူးမှ နံပါတ်တစ်ခုကို ရွေးချယ်ပေးပါ -", reply_markup=MENU_KEYBOARD)
+        await update.message.reply_text("မီနူးမှ ရွေးချယ်ပေးပါ -", reply_markup=MAIN_KEYBOARD)
         return MAIN_MENU
+
+# --- Flow 2: Add Category ---
+async def receive_add_cat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    cat_name = update.message.text.strip()
+    db = load_db()
+    db["categories"].append({"id": uuid.uuid4().hex[:6], "name": cat_name})
+    save_db(db)
+    await update.message.reply_text(f"✅ Category **{cat_name}** ကို ထည့်သွင်းပြီးပါပြီ!", parse_mode="Markdown", reply_markup=MAIN_KEYBOARD)
+    return MAIN_MENU
 
 # --- Flow 1: Add Product ---
 async def receive_prod_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.photo:
-        await update.message.reply_text("ကျေးဇူးပြု၍ Product ပုံ (Photo) ပို့ပေးပါ -")
         return PROD_PHOTO
-
     photo_file = await update.message.photo[-1].get_file()
     img_bytes = await photo_file.download_as_bytearray()
     filename = f"prod_{uuid.uuid4().hex[:8]}.png"
-
-    await update.message.reply_text("⏳ ပုံကို Auto Background ဖျောက်ပြီး အရောင်ချိန်ညှိနေပါသည်...")
+    await update.message.reply_text("⏳ ပုံကို Auto Background ဖျောက်နေပါသည်...")
     img_url, bg_color, glow_color = process_product_image(bytes(img_bytes), filename)
-
     context.user_data["new_prod"] = {
         "id": uuid.uuid4().hex[:8],
         "image": img_url,
         "bg_color": bg_color,
         "glow_color": glow_color,
+        "out_of_stock": False
     }
     await update.message.reply_text("🏷 **Product Name** ပေးပါ -", parse_mode="Markdown")
     return PROD_NAME
 
 async def receive_prod_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["new_prod"]["name"] = update.message.text.strip()
-    await update.message.reply_text("💰 **Price** (စျေးနှုန်း - ဂဏန်းသီးသန့်) ရိုက်ထည့်ပေးပါ -", parse_mode="Markdown")
+    await update.message.reply_text("📝 **Product Info** (Product Name အောက်တွင်ပေါ်မည့် အချက်အလက်အရှည်) ကို ရိုက်ထည့်ပါ -", parse_mode="Markdown")
+    return PROD_INFO
+
+async def receive_prod_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["new_prod"]["info"] = update.message.text.strip()
+    db = load_db()
+    cat_buttons = [[c["name"]] for c in db["categories"]]
+    await update.message.reply_text("📂 **မည်သည့် Category အောက်တွင် ထားမည်နည်း?**", parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(cat_buttons, resize_keyboard=True))
+    return PROD_CAT
+
+async def receive_prod_cat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["new_prod"]["category"] = update.message.text.strip()
+    await update.message.reply_text("💰 **Price** (စျေးနှုန်း - ဂဏန်းသီးသန့်) ရိုက်ထည့်ပါ -", parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
     return PROD_PRICE
 
 async def receive_prod_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     price_str = update.message.text.strip().replace(",", "").replace("Ks", "").strip()
     if not price_str.isdigit():
-        await update.message.reply_text("ဂဏန်းသီးသန့်သာ ရိုက်ထည့်ပေးပါ (ဥပမာ - 15000) -")
+        await update.message.reply_text("ဂဏန်းသီးသန့်သာ ရိုက်ထည့်ပေးပါ -")
         return PROD_PRICE
-
     prod = context.user_data["new_prod"]
     prod["price"] = int(price_str)
-
     db = load_db()
     db["products"].append(prod)
     save_db(db)
-
-    await update.message.reply_text(
-        f"✅ **{prod['name']}** ({prod['price']:,} Ks) ကို Web ပေါ်သို့ အောင်မြင်စွာ တင်ပြီးပါပြီ!",
-        parse_mode="Markdown",
-        reply_markup=MENU_KEYBOARD,
-    )
+    await update.message.reply_text(f"✅ **{prod['name']}** ကို Web သို့ တင်ပြီးပါပြီ!", parse_mode="Markdown", reply_markup=MAIN_KEYBOARD)
     return MAIN_MENU
 
-# --- Flow 4: Delete Product ---
-async def receive_delete_prod(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# --- Flow 3: Manage Product ---
+async def receive_manage_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
-    
     if text.lower() == 'cancel':
-        await update.message.reply_text("❌ လုပ်ဆောင်ချက်ကို ပယ်ဖျက်လိုက်ပါသည်။", reply_markup=MENU_KEYBOARD)
+        await update.message.reply_text("❌ ပယ်ဖျက်လိုက်ပါသည်။", reply_markup=MAIN_KEYBOARD)
         return MAIN_MENU
-        
     if not text.isdigit():
-        await update.message.reply_text("ဂဏန်းသီးသန့်သာ ရိုက်ထည့်ပါ -")
-        return DELETE_PROD
-        
+        return MANAGE_PROD_SELECT
     idx = int(text) - 1
     db = load_db()
-    
     if 0 <= idx < len(db["products"]):
-        deleted_prod = db["products"].pop(idx)
+        context.user_data["edit_idx"] = idx
+        p = db["products"][idx]
+        status = "🔴 Out of Stock" if p.get("out_of_stock") else "🟢 In Stock"
+        msg = f"📦 **{p['name']}**\nInfo: {p.get('info', '-')}\nStatus: {status}\n\nမည်သို့ လုပ်ဆောင်လိုသနည်း?"
+        kb = [["1. Name ပြင်မည်", "2. Info ပြင်မည်"], ["3. Stock အခြေအနေပြောင်းမည်"], ["4. အပြီးဖျက်မည်", "Cancel"]]
+        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(kb, resize_keyboard=True))
+        return MANAGE_PROD_ACTION
+    return MANAGE_PROD_SELECT
+
+async def receive_manage_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    choice = update.message.text.strip()
+    idx = context.user_data.get("edit_idx")
+    db = load_db()
+    if choice.startswith("1"):
+        await update.message.reply_text("🏷 Product Name အသစ် ရိုက်ထည့်ပါ -", reply_markup=ReplyKeyboardRemove())
+        return EDIT_PROD_NAME
+    elif choice.startswith("2"):
+        await update.message.reply_text("📝 Product Info အသစ် ရိုက်ထည့်ပါ -", reply_markup=ReplyKeyboardRemove())
+        return EDIT_PROD_INFO
+    elif choice.startswith("3"):
+        db["products"][idx]["out_of_stock"] = not db["products"][idx].get("out_of_stock", False)
         save_db(db)
-        
-        try:
-            img_path = deleted_prod.get("image", "").lstrip("/")
-            full_path = os.path.join(BASE_DIR, img_path)
-            if os.path.exists(full_path):
-                os.remove(full_path)
-        except Exception:
-            pass
-            
-        await update.message.reply_text(
-            f"✅ **{deleted_prod['name']}** ကို အောင်မြင်စွာ ဖျက်လိုက်ပါပြီ။ Web တွင် ချက်ချင်းပျောက်သွားပါမည်။", 
-            parse_mode="Markdown",
-            reply_markup=MENU_KEYBOARD
-        )
+        await update.message.reply_text("✅ Stock အခြေအနေ ပြောင်းလဲပြီးပါပြီ။", reply_markup=MAIN_KEYBOARD)
+        return MAIN_MENU
+    elif choice.startswith("4"):
+        deleted = db["products"].pop(idx)
+        save_db(db)
+        await update.message.reply_text(f"✅ {deleted['name']} ကို အပြီးဖျက်လိုက်ပါပြီ။", reply_markup=MAIN_KEYBOARD)
         return MAIN_MENU
     else:
-        await update.message.reply_text("❌ နံပါတ် မှားယွင်းနေပါသည်။ စာရင်းတွင်ပါသော နံပါတ်ကို ပြန်လည်ရွေးချယ်ပါ -")
-        return DELETE_PROD
+        await update.message.reply_text("❌ ပယ်ဖျက်လိုက်ပါသည်။", reply_markup=MAIN_KEYBOARD)
+        return MAIN_MENU
 
-# --- Flow 2: Add Shipping ---
+async def receive_edit_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    db = load_db()
+    idx = context.user_data.get("edit_idx")
+    db["products"][idx]["name"] = update.message.text.strip()
+    save_db(db)
+    await update.message.reply_text("✅ Name ပြင်ဆင်ပြီးပါပြီ။", reply_markup=MAIN_KEYBOARD)
+    return MAIN_MENU
+
+async def receive_edit_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    db = load_db()
+    idx = context.user_data.get("edit_idx")
+    db["products"][idx]["info"] = update.message.text.strip()
+    save_db(db)
+    await update.message.reply_text("✅ Info ပြင်ဆင်ပြီးပါပြီ။", reply_markup=MAIN_KEYBOARD)
+    return MAIN_MENU
+
+# --- Flow 4 & 5: Shipping and Payment ---
 async def receive_ship_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ship_name = update.message.text.strip()
     db = load_db()
-    requires_gate = "ဂိတ်" in ship_name or "gate" in ship_name.lower()
-    db["shipping_options"].append({
-        "id": uuid.uuid4().hex[:6],
-        "name": ship_name,
-        "requires_gate": requires_gate
-    })
+    db["shipping_options"].append({"id": uuid.uuid4().hex[:6], "name": ship_name, "requires_gate": "ဂိတ်" in ship_name})
     save_db(db)
-    await update.message.reply_text(
-        f"✅ Shipping Option **{ship_name}** ကို Web ထဲသို့ ချက်ချင်း ထည့်သွင်းပြီးပါပြီ!",
-        parse_mode="Markdown",
-        reply_markup=MENU_KEYBOARD,
-    )
+    await update.message.reply_text(f"✅ Shipping Option **{ship_name}** ကို ထည့်သွင်းပြီးပါပြီ!", parse_mode="Markdown", reply_markup=MAIN_KEYBOARD)
     return MAIN_MENU
 
-# --- Flow 3: Add Payment ---
 async def receive_pay_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["new_pay_name"] = update.message.text.strip()
     await update.message.reply_text("🖼 အဆိုပါ Payment အတွက် **Logo ပုံ** ပို့ပေးပါ -", parse_mode="Markdown")
     return PAY_LOGO
 
 async def receive_pay_logo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message.photo:
-        await update.message.reply_text("ကျေးဇူးပြု၍ Payment Logo ပုံ ပို့ပေးပါ -")
-        return PAY_LOGO
-
+    if not update.message.photo: return PAY_LOGO
     photo_file = await update.message.photo[-1].get_file()
     filename = f"pay_{uuid.uuid4().hex[:6]}.jpg"
-    save_path = os.path.join(UPLOAD_DIR, filename)
-    await photo_file.download_to_drive(save_path)
-
-    pay_name = context.user_data["new_pay_name"]
+    await photo_file.download_to_drive(os.path.join(UPLOAD_DIR, filename))
     db = load_db()
     db["payment_methods"].append({
-        "id": uuid.uuid4().hex[:6],
-        "name": pay_name,
-        "logo": f"/static/uploads/{filename}",
-        "qr": "/static/qr.jpg",
-        "phone": "09664994195",
-        "account_name": "Thura"
+        "id": uuid.uuid4().hex[:6], "name": context.user_data["new_pay_name"],
+        "logo": f"/static/uploads/{filename}", "qr": "/static/qr.jpg",
+        "phone": "09664994195", "account_name": "Thura"
     })
     save_db(db)
-
-    await update.message.reply_text(
-        f"✅ Payment Method **{pay_name}** ကို Web ထဲသို့ ချက်ချင်း ထည့်သွင်းပြီးပါပြီ!",
-        parse_mode="Markdown",
-        reply_markup=MENU_KEYBOARD,
-    )
+    await update.message.reply_text("✅ Payment Method ကို ထည့်သွင်းပြီးပါပြီ!", reply_markup=MAIN_KEYBOARD)
     return MAIN_MENU
 
 # ================= FASTAPI WEB SERVER =================
@@ -403,8 +406,14 @@ async def startup_event():
                 MAIN_MENU: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu)],
                 PROD_PHOTO: [MessageHandler(filters.PHOTO, receive_prod_photo)],
                 PROD_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_prod_name)],
+                PROD_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_prod_info)],
+                PROD_CAT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_prod_cat)],
                 PROD_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_prod_price)],
-                DELETE_PROD: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_delete_prod)],
+                ADD_CAT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_add_cat)],
+                MANAGE_PROD_SELECT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_manage_select)],
+                MANAGE_PROD_ACTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_manage_action)],
+                EDIT_PROD_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_edit_name)],
+                EDIT_PROD_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_edit_info)],
                 SHIP_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_ship_name)],
                 PAY_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_pay_name)],
                 PAY_LOGO: [MessageHandler(filters.PHOTO, receive_pay_logo)],
@@ -433,17 +442,10 @@ async def get_shop_data():
 
 @app.post("/api/order")
 async def submit_order(
-    name: str = Form(...),
-    phone1: str = Form(...),
-    phone2: str = Form(""),
-    address: str = Form(...),
-    shipping: str = Form(...),
-    bus_line: str = Form(""),
-    gate_name: str = Form(""),
-    payment_method: str = Form(...),
-    total: int = Form(...),
-    items_json: str = Form(...),
-    slip: UploadFile = File(...),
+    name: str = Form(...), phone1: str = Form(...), phone2: str = Form(""),
+    address: str = Form(...), shipping: str = Form(...), bus_line: str = Form(""),
+    gate_name: str = Form(""), payment_method: str = Form(...), total: int = Form(...),
+    items_json: str = Form(...), slip: UploadFile = File(...)
 ):
     items = json.loads(items_json)
     order_id = uuid.uuid4().hex[:6].upper()
@@ -452,46 +454,26 @@ async def submit_order(
     slip_ext = os.path.splitext(slip.filename)[1] or ".jpg"
     slip_filename = f"slip_{order_id}{slip_ext}"
     slip_path = os.path.join(UPLOAD_DIR, slip_filename)
-    with open(slip_path, "wb") as f:
-        f.write(await slip.read())
+    with open(slip_path, "wb") as f: f.write(await slip.read())
 
     order_data = {
-        "order_id": order_id,
-        "date": date_str,
-        "name": name,
-        "phone1": phone1,
-        "phone2": phone2,
-        "address": address,
-        "shipping": shipping,
-        "bus_line": bus_line,
-        "gate_name": gate_name,
-        "payment_method": payment_method,
-        "total": total,
-        "items": items,
+        "order_id": order_id, "date": date_str, "name": name, "phone1": phone1, "phone2": phone2,
+        "address": address, "shipping": shipping, "bus_line": bus_line, "gate_name": gate_name,
+        "payment_method": payment_method, "total": total, "items": items,
     }
 
     pdf_filename = f"Order_{order_id}.pdf"
     pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)
     generate_order_pdf(order_data, pdf_path)
 
-    items_text = "\n".join(
-        [f"  • {i['name']} (x{i['qty']}) - {int(i['price']) * int(i['qty']):,} Ks" for i in items]
-    )
-    gate_info = ""
-    if bus_line or gate_name:
-        gate_info = f"\n🚌 **ကားဂိတ်အမည်:** {bus_line}\n📍 **ဂိတ်အမည်:** {gate_name}"
+    items_text = "\n".join([f"  • {i['name']} (x{i['qty']}) - {int(i['price']) * int(i['qty']):,} Ks" for i in items])
+    gate_info = f"\n🚌 **ကားဂိတ်အမည်:** {bus_line}\n📍 **ဂိတ်အမည်:** {gate_name}" if bus_line else ""
 
     msg_text = (
-        f"🔔 **ORDER အသစ်ဝင်လာပါပြီ! (#{order_id})**\n"
-        f"📅 ရက်စွဲ: {date_str}\n\n"
-        f"👤 **မှာယူသူအမည်:** {name}\n"
-        f"📞 **ဖုန်းနံပါတ် (၁):** {phone1}\n"
-        f"📞 **ဖုန်းနံပါတ် (၂):** {phone2 or '-'}\n"
-        f"🏠 **လိပ်စာ:** {address}\n"
-        f"🚚 **ပို့ဆောင်မှုစနစ်:** {shipping}{gate_info}\n"
-        f"💳 **ငွေပေးချေမှု:** {payment_method}\n\n"
-        f"🛒 **မှာယူထားသော ပစ္စည်းများ:**\n{items_text}\n\n"
-        f"💰 **စုစုပေါင်းကျသင့်ငွေ:** {total:,} Ks"
+        f"🔔 **ORDER အသစ်ဝင်လာပါပြီ! (#{order_id})**\n📅 ရက်စွဲ: {date_str}\n\n"
+        f"👤 **အမည်:** {name}\n📞 **ဖုန်း (၁):** {phone1}\n📞 **ဖုန်း (၂):** {phone2 or '-'}\n"
+        f"🏠 **လိပ်စာ:** {address}\n🚚 **ပို့ဆောင်မှု:** {shipping}{gate_info}\n"
+        f"💳 **ငွေပေးချေမှု:** {payment_method}\n\n🛒 **မှာယူထားသော ပစ္စည်းများ:**\n{items_text}\n\n💰 **စုစုပေါင်း:** {total:,} Ks"
     )
 
     db = load_db()
@@ -499,19 +481,9 @@ async def submit_order(
         for chat_id in db["admin_chat_ids"]:
             try:
                 with open(slip_path, "rb") as photo_f:
-                    await telegram_app.bot.send_photo(
-                        chat_id=chat_id,
-                        photo=photo_f,
-                        caption=msg_text,
-                        parse_mode="Markdown",
-                    )
+                    await telegram_app.bot.send_photo(chat_id=chat_id, photo=photo_f, caption=msg_text, parse_mode="Markdown")
                 with open(pdf_path, "rb") as pdf_f:
-                    await telegram_app.bot.send_document(
-                        chat_id=chat_id,
-                        document=pdf_f,
-                        filename=pdf_filename,
-                        caption=f"📄 Order #{order_id} အတွက် PDF ပြေစာ",
-                    )
+                    await telegram_app.bot.send_document(chat_id=chat_id, document=pdf_f, filename=pdf_filename)
             except Exception as e:
                 print(f"Telegram send error: {e}")
 

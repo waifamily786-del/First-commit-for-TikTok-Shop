@@ -1,0 +1,6 @@
+    fastapi
+    uvicorn
+    python-telegram-bot
+    pillow
+    fpdf2
+    python-multipart

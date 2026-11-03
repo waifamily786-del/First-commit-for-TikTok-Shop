@@ -2,7 +2,19 @@
     "admin_chat_ids": [
         5797724379
     ],
-    "products": [],
+    "products": [
+        {
+            "id": "3f67374c",
+            "image": "/static/uploads/prod_08c9bd12.png",
+            "bg_color": "rgba(196, 183, 161, 0.22)",
+            "glow_color": "rgba(196, 183, 161, 0.45)",
+            "out_of_stock": false,
+            "name": "Me Perfume",
+            "info": "Natural Spray Perfume (100 ml)",
+            "category": "ရေမွှေးများ",
+            "price": 20000
+        }
+    ],
     "shipping_options": [
         {
             "id": "royal",
@@ -23,6 +35,16 @@
             "qr": "/static/qr.jpg",
             "phone": "09664994195",
             "account_name": "Thura"
+        }
+    ],
+    "categories": [
+        {
+            "id": "all",
+            "name": "General"
+        },
+        {
+            "id": "a7c62c",
+            "name": "ရေမွှေးများ"
         }
     ]
 }

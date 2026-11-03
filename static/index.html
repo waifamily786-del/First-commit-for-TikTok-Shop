@@ -8,33 +8,18 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Padauk:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      font-family: 'Plus Jakarta Sans', 'Padauk', sans-serif;
-      background-color: #F4F6F9;
-      color: #1E293B;
-      -webkit-tap-highlight-color: transparent;
-    }
+    body { font-family: 'Plus Jakarta Sans', 'Padauk', sans-serif; background-color: #F4F6F9; color: #1E293B; -webkit-tap-highlight-color: transparent; }
     .coral-bg { background-color: #FF5A79; }
     .coral-text { color: #FF5A79; }
     .coral-border { border-color: #FF5A79; }
-    .soft-card {
-      background: #FFFFFF;
-      border-radius: 22px;
-      box-shadow: 0 8px 24px rgba(149, 157, 165, 0.08);
-    }
-    .product-backdrop {
-      width: 150px;
-      height: 150px;
-      border-radius: 9999px;
-      transition: transform 0.3s ease;
-    }
+    .soft-card { background: #FFFFFF; border-radius: 22px; box-shadow: 0 8px 24px rgba(149, 157, 165, 0.08); }
+    .product-backdrop { width: 140px; height: 140px; border-radius: 9999px; }
   </style>
 </head>
-<body class="max-w-md mx-auto min-h-screen flex flex-col justify-between pb-8">
+<body class="max-w-md mx-auto min-h-screen flex flex-col justify-between pb-8 relative">
 
-  <!-- ==================== SCREEN 1: PRODUCT CATALOG ==================== -->
+  <!-- SCREEN 1: PRODUCT CATALOG -->
   <div id="screen-catalog" class="p-4 flex-1">
-    <!-- Top Search & Filter Bar -->
     <div class="flex items-center gap-3 mb-5 mt-2">
       <div class="flex-1 bg-white rounded-2xl px-4 py-3 flex items-center shadow-sm">
         <input id="search-input" type="text" placeholder="Search products..." oninput="renderCatalog()"
@@ -47,20 +32,20 @@
       </button>
     </div>
 
-    <!-- Title & Sort Row -->
-    <div class="flex items-center justify-between mb-4 px-1">
+    <!-- Title & Category Dropdown -->
+    <div class="flex items-center justify-between mb-4 px-1 relative">
       <h1 class="text-lg font-extrabold text-slate-800">Our Products</h1>
-      <div class="bg-white px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-500 shadow-sm flex items-center gap-1">
-        <span>Sort By</span>
+      <button onclick="toggleDropdown()" class="bg-white px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-500 shadow-sm flex items-center gap-1">
+        <span id="cat-label">Categories</span>
         <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
-      </div>
+      </button>
+      <div id="cat-dropdown" class="hidden absolute right-0 top-10 bg-white shadow-xl rounded-xl border border-slate-100 py-2 w-40 z-50"></div>
     </div>
 
-    <!-- 2-Column Product Grid (No 30% off, No Yellow Dots) -->
+    <!-- Product Grid -->
     <div id="product-grid" class="grid grid-cols-2 gap-4"></div>
 
-    <!-- Floating Bottom Cart Bar when items selected -->
-    <div id="floating-cart-bar" class="hidden fixed bottom-5 left-4 right-4 max-w-md mx-auto coral-bg text-white rounded-2xl p-4 shadow-xl flex items-center justify-between z-50 cursor-pointer" onclick="goToCart()">
+    <div id="floating-cart-bar" class="hidden fixed bottom-5 left-4 right-4 max-w-md mx-auto coral-bg text-white rounded-2xl p-4 shadow-xl flex items-center justify-between z-40 cursor-pointer" onclick="goToCart()">
       <div>
         <p class="text-xs opacity-90">ရွေးချယ်ထားသော ပစ္စည်း</p>
         <p id="floating-cart-Info" class="font-bold text-sm">0 ခု</p>
@@ -72,126 +57,84 @@
     </div>
   </div>
 
-  <!-- ==================== SCREEN 2: SELECTED ITEMS / CART ==================== -->
+  <!-- SCREEN 2: CART -->
   <div id="screen-cart" class="hidden p-4 flex-1 flex flex-col justify-between">
     <div>
       <div class="flex items-center gap-3 mb-5 mt-2">
-        <button onclick="showScreen('screen-catalog')" class="p-2 bg-white rounded-xl shadow-sm">
-          <i data-lucide="chevron-left" class="w-5 h-5 text-slate-700"></i>
-        </button>
+        <button onclick="showScreen('screen-catalog')" class="p-2 bg-white rounded-xl shadow-sm"><i data-lucide="chevron-left" class="w-5 h-5 text-slate-700"></i></button>
         <h1 class="text-lg font-extrabold text-slate-800">Selected Items</h1>
       </div>
-
-      <!-- Cart Items List (Removed extra subtitle line between Name and Price) -->
       <div id="cart-list" class="space-y-3.5"></div>
     </div>
-
-    <!-- Bottom Total & Pay Now Bar -->
     <div class="mt-8 pt-4 border-t border-slate-200/70 flex items-center justify-between px-2">
       <div>
         <p class="text-xs font-semibold text-slate-400">Total</p>
         <p id="cart-total-display" class="text-2xl font-extrabold text-slate-800">0 Ks</p>
       </div>
-      <button onclick="goToCheckout()" class="coral-bg text-white font-bold text-sm px-10 py-4 rounded-full shadow-lg shadow-rose-200 active:scale-95 transition">
-        Pay Now
-      </button>
+      <button onclick="goToCheckout()" class="coral-bg text-white font-bold text-sm px-10 py-4 rounded-full shadow-lg active:scale-95 transition">Pay Now</button>
     </div>
   </div>
 
-  <!-- ==================== SCREEN 3: CHECKOUT ==================== -->
+  <!-- SCREEN 3: CHECKOUT -->
   <div id="screen-checkout" class="hidden p-4 flex-1">
     <div class="flex items-center justify-between mb-5 mt-2">
-      <button onclick="showScreen('screen-cart')" class="p-2 bg-white rounded-xl shadow-sm">
-        <i data-lucide="chevron-left" class="w-5 h-5 text-slate-700"></i>
-      </button>
+      <button onclick="showScreen('screen-cart')" class="p-2 bg-white rounded-xl shadow-sm"><i data-lucide="chevron-left" class="w-5 h-5 text-slate-700"></i></button>
       <h1 class="text-lg font-extrabold text-slate-800">Checkout</h1>
       <div class="w-9"></div>
     </div>
-
-    <!-- Information Card (Replaced 'Address' & location icon with 'Information' & info icon) -->
     <div class="soft-card p-4 mb-4">
       <div class="flex items-center gap-2 mb-3.5">
-        <div class="w-7 h-7 rounded-full bg-rose-50 flex items-center justify-center">
-          <i data-lucide="info" class="w-4 h-4 coral-text"></i>
-        </div>
+        <div class="w-7 h-7 rounded-full bg-rose-50 flex items-center justify-center"><i data-lucide="info" class="w-4 h-4 coral-text"></i></div>
         <h2 class="font-bold text-sm text-slate-800">Information</h2>
       </div>
-
       <div class="space-y-3">
-        <input id="cust-name" type="text" placeholder="အမည် (Name)"
-          class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-rose-400" />
+        <input id="cust-name" type="text" placeholder="အမည် (Name)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-rose-400" />
         <div class="grid grid-cols-2 gap-2.5">
-          <input id="cust-phone1" type="tel" placeholder="ဖုန်းနံပါတ် (၁)"
-            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-rose-400" />
-          <input id="cust-phone2" type="tel" placeholder="ဖုန်းနံပါတ် (၂)"
-            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-rose-400" />
+          <input id="cust-phone1" type="tel" placeholder="ဖုန်းနံပါတ် (၁)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-rose-400" />
+          <input id="cust-phone2" type="tel" placeholder="ဖုန်းနံပါတ် (၂)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-rose-400" />
         </div>
-        <textarea id="cust-address" rows="2" placeholder="နေရပ်လိပ်စာအပြည့်အစုံ (Address)"
-          class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-rose-400"></textarea>
+        <textarea id="cust-address" rows="2" placeholder="နေရပ်လိပ်စာအပြည့်အစုံ (Address)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-rose-400"></textarea>
       </div>
     </div>
-
-    <!-- Shipping Options Card (No Free Shipping row) -->
     <div class="soft-card p-4 mb-4">
       <div class="flex items-center gap-2.5 mb-3">
         <i data-lucide="truck" class="w-5 h-5 coral-text"></i>
         <h2 class="font-bold text-sm text-slate-800">Shipping Options</h2>
       </div>
-
       <div id="shipping-list" class="grid grid-cols-2 gap-2.5"></div>
-
-      <!-- Conditional Gate Inputs when ကားဂိတ် is chosen -->
       <div id="gate-inputs" class="hidden mt-3 pt-3 border-t border-slate-100 space-y-2.5">
-        <input id="bus-line-name" type="text" placeholder="ကားဂိတ်အမည် (ဥပမာ - မန္တလာမင်း)"
-          class="w-full bg-rose-50/50 border border-rose-200 rounded-xl px-3.5 py-2.5 text-sm outline-none" />
-        <input id="gate-station-name" type="text" placeholder="ဂိတ်အမည် (ဥပမာ - အောင်မင်္ဂလာအဝေးပြေး)"
-          class="w-full bg-rose-50/50 border border-rose-200 rounded-xl px-3.5 py-2.5 text-sm outline-none" />
+        <input id="bus-line-name" type="text" placeholder="ကားဂိတ်အမည် (ဥပမာ - မန္တလာမင်း)" class="w-full bg-rose-50/50 border border-rose-200 rounded-xl px-3.5 py-2.5 text-sm outline-none" />
+        <input id="gate-station-name" type="text" placeholder="ဂိတ်အမည် (ဥပမာ - အောင်မင်္ဂလာအဝေးပြေး)" class="w-full bg-rose-50/50 border border-rose-200 rounded-xl px-3.5 py-2.5 text-sm outline-none" />
       </div>
     </div>
-
-    <!-- Payment Methods Card -->
     <div class="soft-card p-4 mb-4">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="font-bold text-sm text-slate-800">Payment Methods</h2>
-      </div>
+      <div class="flex items-center justify-between mb-3"><h2 class="font-bold text-sm text-slate-800">Payment Methods</h2></div>
       <div id="payment-list" class="space-y-2.5"></div>
     </div>
-
-    <!-- Total Payment Only (Removed Subtotal, Shipping, Voucher Applied) -->
     <div class="soft-card p-4 mb-5 flex items-center justify-between">
       <span class="font-extrabold text-sm text-slate-800 tracking-wide">TOTAL PAYMENT</span>
       <span id="checkout-total-display" class="font-extrabold text-lg coral-text">0 Ks</span>
     </div>
-
-    <button onclick="placeOrderToQR()" class="w-full coral-bg text-white font-bold py-4 rounded-2xl shadow-lg shadow-rose-200 active:scale-95 transition">
-      Place Order
-    </button>
+    <button onclick="placeOrderToQR()" class="w-full coral-bg text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition">Place Order</button>
   </div>
 
-  <!-- ==================== SCREEN 4: QR & SLIP UPLOAD ==================== -->
+  <!-- SCREEN 4: QR & SLIP UPLOAD -->
   <div id="screen-qr" class="hidden p-4 flex-1 flex flex-col justify-between">
     <div>
       <div class="flex items-center gap-3 mb-4 mt-2">
-        <button onclick="showScreen('screen-checkout')" class="p-2 bg-white rounded-xl shadow-sm">
-          <i data-lucide="chevron-left" class="w-5 h-5 text-slate-700"></i>
-        </button>
+        <button onclick="showScreen('screen-checkout')" class="p-2 bg-white rounded-xl shadow-sm"><i data-lucide="chevron-left" class="w-5 h-5 text-slate-700"></i></button>
         <h1 class="text-lg font-extrabold text-slate-800">Scan & Pay</h1>
       </div>
-
       <div class="soft-card p-6 text-center mb-4">
-        <img id="qr-image" src="/static/qr.jpg" alt="QR Code" class="w-56 h-56 object-contain mx-auto rounded-xl border border-slate-100 p-2 mb-4" />
+        <img id="qr-image" src="/static/qr.jpg" class="w-56 h-56 object-contain mx-auto rounded-xl border border-slate-100 p-2 mb-4" />
         <p class="font-bold text-slate-800 text-base mb-1">Ph Number - <span id="pay-phone" class="coral-text">09664994195</span></p>
         <p class="font-bold text-slate-700 text-sm">Account Name - <span id="pay-acc">Thura</span></p>
       </div>
-
-      <!-- Slip Upload Section -->
       <div class="soft-card p-5 text-center">
         <p class="font-bold text-sm text-slate-800 mb-3">ငွေလွှဲပြေစာထည့်ပါ</p>
         <label for="slip-file" class="cursor-pointer border-2 border-dashed border-rose-300 bg-rose-50/40 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 hover:bg-rose-50 transition">
           <div id="slip-preview-container" class="flex flex-col items-center gap-2">
-            <div class="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center">
-              <i data-lucide="image-plus" class="w-6 h-6 coral-text"></i>
-            </div>
+            <div class="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center"><i data-lucide="image-plus" class="w-6 h-6 coral-text"></i></div>
             <span class="text-xs font-semibold text-slate-500">ပုံရွေးချယ်ရန် နှိပ်ပါ</span>
           </div>
           <img id="slip-preview-img" class="hidden max-h-44 rounded-xl object-contain mx-auto" />
@@ -199,115 +142,117 @@
         <input id="slip-file" type="file" accept="image/*" class="hidden" onchange="handleSlipSelected(event)" />
       </div>
     </div>
-
-    <!-- Large Confirmation Button (Appears after uploading slip) -->
-    <button id="btn-complete-payment" onclick="submitFinalOrder()"
-      class="hidden mt-6 w-full coral-bg text-white font-extrabold text-lg py-4 rounded-2xl shadow-xl shadow-rose-200 active:scale-95 transition">
-      ငွေလွှဲမှုပြီးစီးပါပြီ
-    </button>
+    <button id="btn-complete-payment" onclick="submitFinalOrder()" class="hidden mt-6 w-full coral-bg text-white font-extrabold text-lg py-4 rounded-2xl shadow-xl active:scale-95 transition">ငွေလွှဲမှုပြီးစီးပါပြီ</button>
   </div>
 
-  <!-- ==================== SCREEN 5: PAYMENT STATUS ==================== -->
+  <!-- SCREEN 5: PAYMENT STATUS -->
   <div id="screen-status" class="hidden p-4 flex-1 flex flex-col justify-between">
     <div class="text-center mt-4">
       <h2 class="text-sm font-bold text-slate-600 mb-8">Payment Status</h2>
-
-      <!-- Green Check Icon -->
       <div class="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-6">
-        <div class="w-16 h-16 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-200">
-          <i data-lucide="check" class="w-8 h-8 stroke-[3]"></i>
-        </div>
+        <div class="w-16 h-16 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-lg"><i data-lucide="check" class="w-8 h-8 stroke-[3]"></i></div>
       </div>
-
       <div class="soft-card p-6 text-left">
         <div class="text-center mb-6">
-          <h3 class="text-lg font-extrabold text-slate-800 mb-1">Payment in progress</h3>
-          <p class="text-xs text-slate-400">Order verification in progress</p>
+          <h3 class="text-lg font-extrabold text-slate-800 mb-2">Order တင်ခြင်း အောင်မြင်ပါပြီ။</h3>
+          <p class="text-xs text-slate-500 leading-relaxed">အော်ဒါကို စိစစ်ပြီး 4 ရက်မှ 7 ရက်အတွင်း<br>ပို့ဆောင်ပေးမည်ဖြစ်ပါသည်။</p>
         </div>
-
-        <!-- Clean Summary (Removed Gift to, Transfer Amount, Additional Cost) -->
         <div class="space-y-4 text-sm border-b border-dashed border-slate-200 pb-5 mb-5">
-          <div class="flex justify-between">
-            <span class="text-slate-400 font-medium">Date</span>
-            <span id="status-date" class="font-bold text-slate-800">-</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-slate-400 font-medium">Payment Method</span>
-            <span id="status-method" class="font-bold text-slate-800">-</span>
-          </div>
+          <div class="flex justify-between"><span class="text-slate-400 font-medium">Date</span><span id="status-date" class="font-bold text-slate-800">-</span></div>
+          <div class="flex justify-between"><span class="text-slate-400 font-medium">Payment Method</span><span id="status-method" class="font-bold text-slate-800">-</span></div>
         </div>
-
         <div class="flex justify-between items-center text-base">
-          <span class="text-slate-400 font-semibold">Total</span>
-          <span id="status-total" class="font-extrabold text-slate-900 text-lg">0 Ks</span>
+          <span class="text-slate-400 font-semibold">Total</span><span id="status-total" class="font-extrabold text-slate-900 text-lg">0 Ks</span>
         </div>
       </div>
     </div>
-
-    <button onclick="resetAndGoHome()" class="mt-8 w-full bg-slate-900 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition">
-      Back to Home
-    </button>
+    <button onclick="resetAndGoHome()" class="mt-8 w-full bg-slate-900 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition">Back to Home</button>
   </div>
 
   <script>
-    let shopData = { products: [], shipping_options: [], payment_methods: [] };
-    let cart = {}; // { productId: { ...product, qty: 1, checked: true } }
+    let shopData = { categories: [], products: [], shipping_options: [], payment_methods: [] };
+    let cart = {};
     let selectedShipping = null;
     let selectedPayment = null;
+    let activeCategory = "All";
 
     async function fetchShopData() {
       const res = await fetch('/api/data');
       shopData = await res.json();
-      if (shopData.shipping_options.length > 0 && !selectedShipping) {
-        selectedShipping = shopData.shipping_options[0];
-      }
-      if (shopData.payment_methods.length > 0 && !selectedPayment) {
-        selectedPayment = shopData.payment_methods[0];
-      }
+      if (shopData.shipping_options.length > 0) selectedShipping = shopData.shipping_options[0];
+      if (shopData.payment_methods.length > 0) selectedPayment = shopData.payment_methods[0];
+      renderCategories();
       renderCatalog();
       renderCheckoutOptions();
     }
 
     function showScreen(screenId) {
-      ['screen-catalog', 'screen-cart', 'screen-checkout', 'screen-qr', 'screen-status'].forEach(id => {
-        document.getElementById(id).classList.add('hidden');
-      });
+      ['screen-catalog', 'screen-cart', 'screen-checkout', 'screen-qr', 'screen-status'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.getElementById(screenId).classList.remove('hidden');
       window.scrollTo(0, 0);
       lucide.createIcons();
     }
 
-    // ---------------- SCREEN 1: CATALOG ----------------
+    function toggleDropdown() {
+      document.getElementById('cat-dropdown').classList.toggle('hidden');
+    }
+
+    function renderCategories() {
+      const dd = document.getElementById('cat-dropdown');
+      dd.innerHTML = `<div class="px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer" onclick="setCategory('All')">All Categories</div>`;
+      shopData.categories.forEach(c => {
+        if(c.name !== "General") {
+          dd.innerHTML += `<div class="px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer" onclick="setCategory('${c.name}')">${c.name}</div>`;
+        }
+      });
+    }
+
+    function setCategory(name) {
+      activeCategory = name;
+      document.getElementById('cat-label').textContent = name;
+      document.getElementById('cat-dropdown').classList.add('hidden');
+      renderCatalog();
+    }
+
     function renderCatalog() {
-      const query = document.getElementById('search-input').value.toLowerCase();
+      const query = document.getElementById('search-input').value.toLowerCase().trim();
       const grid = document.getElementById('product-grid');
       grid.innerHTML = '';
 
-      const filtered = shopData.products.filter(p => p.name.toLowerCase().includes(query));
+      let filtered = shopData.products;
+      if (activeCategory !== "All") {
+        filtered = filtered.filter(p => p.category === activeCategory);
+      }
+      if (query) {
+        const terms = query.split(' ');
+        filtered = filtered.filter(p => {
+            const searchStr = (p.name + ' ' + (p.info || '')).toLowerCase();
+            return terms.every(term => searchStr.includes(term));
+        });
+      }
+
       filtered.forEach(p => {
         const inCartQty = cart[p.id] ? cart[p.id].qty : 0;
+        const isOOS = p.out_of_stock === true;
         const card = document.createElement('div');
         card.className = 'soft-card p-3.5 flex flex-col justify-between relative';
         card.innerHTML = `
-          <div class="flex justify-end">
-            <button onclick="toggleHeart(this)" class="text-slate-300 hover:text-rose-500 transition">
-              <i data-lucide="heart" class="w-4 h-4"></i>
-            </button>
-          </div>
-        <div class="my-3 flex items-center justify-center relative h-40">
-        <div class="product-backdrop flex items-center justify-center"
-             style="background: radial-gradient(circle, ${p.glow_color || 'rgba(255,90,121,0.35)'} 0%, ${p.bg_color || 'rgba(255,90,121,0.15)'} 70%);">
-          <img src="${p.image}" alt="${p.name}" class="w-32 h-32 object-contain drop-shadow-md" />
-        </div>
-      </div>
-          <div class="flex items-end justify-between mt-1">
-            <div>
-              <h3 class="text-xs font-bold text-slate-600 line-clamp-1">${p.name}</h3>
-              <p class="text-sm font-extrabold text-slate-900 mt-0.5">${Number(p.price).toLocaleString()} Ks</p>
+          <div class="mt-2 mb-3 flex items-center justify-center relative h-40 ${isOOS ? 'opacity-40 grayscale' : ''}">
+            <div class="product-backdrop flex items-center justify-center" style="background: radial-gradient(circle, ${p.glow_color} 0%, ${p.bg_color} 70%);">
+              <img src="${p.image}" class="w-32 h-32 object-contain drop-shadow-md" />
             </div>
-            <button onclick="addToCart('${p.id}')" class="coral-bg text-white w-8 h-8 rounded-full flex items-center justify-center shadow-md shadow-rose-200 active:scale-90 transition">
+            ${isOOS ? `<div class="absolute inset-0 flex items-center justify-center"><span class="bg-slate-800 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg">Out of Stock</span></div>` : ''}
+          </div>
+          <div class="flex items-end justify-between mt-1">
+            <div class="flex-1">
+              <h3 class="text-xs font-bold text-slate-800 line-clamp-1">${p.name}</h3>
+              <p class="text-[10px] text-slate-500 mt-0.5 leading-tight">${p.info || ''}</p>
+              <p class="text-sm font-extrabold text-slate-900 mt-1.5">${Number(p.price).toLocaleString()} Ks</p>
+            </div>
+            ${!isOOS ? `
+            <button onclick="addToCart('${p.id}')" class="coral-bg text-white w-8 h-8 rounded-full flex items-center justify-center shadow-md active:scale-90 shrink-0 ml-1.5">
               ${inCartQty > 0 ? `<span class="text-xs font-bold">${inCartQty}</span>` : `<i data-lucide="plus" class="w-4 h-4"></i>`}
-            </button>
+            </button>` : ''}
           </div>
         `;
         grid.appendChild(card);
@@ -316,19 +261,11 @@
       lucide.createIcons();
     }
 
-    function toggleHeart(btn) {
-      btn.classList.toggle('text-rose-500');
-      btn.classList.toggle('text-slate-300');
-    }
-
     function addToCart(prodId) {
       const prod = shopData.products.find(p => p.id === prodId);
-      if (!prod) return;
-      if (!cart[prodId]) {
-        cart[prodId] = { ...prod, qty: 1, checked: true };
-      } else {
-        cart[prodId].qty += 1;
-      }
+      if (!prod || prod.out_of_stock) return;
+      if (!cart[prodId]) cart[prodId] = { ...prod, qty: 1, checked: true };
+      else cart[prodId].qty += 1;
       renderCatalog();
     }
 
@@ -348,36 +285,32 @@
     }
 
     function goToCart() {
-      if (Object.keys(cart).length === 0) {
-        alert('ပစ္စည်းအရင်ရွေးချယ်ပေးပါ');
-        return;
-      }
+      if (Object.keys(cart).length === 0) return alert('ပစ္စည်းအရင်ရွေးချယ်ပေးပါ');
       renderCartScreen();
       showScreen('screen-cart');
     }
 
-    // ---------------- SCREEN 2: CART ----------------
     function renderCartScreen() {
       const list = document.getElementById('cart-list');
       list.innerHTML = '';
-
       Object.values(cart).forEach(item => {
         const row = document.createElement('div');
         row.className = 'soft-card p-3.5 flex items-center gap-3.5';
         row.innerHTML = `
-          <div class="w-20 h-20 rounded-2xl flex items-center justify-center shrink-0"
-               style="background: ${item.bg_color || 'rgba(255,90,121,0.15)'}">
+          <div class="w-20 h-20 rounded-2xl flex items-center justify-center shrink-0" style="background: ${item.bg_color}">
             <img src="${item.image}" class="w-16 h-16 object-contain drop-shadow" />
           </div>
           <div class="flex-1">
             <div class="flex items-start justify-between">
-              <h3 class="font-bold text-sm text-slate-800">${item.name}</h3>
-              <button onclick="toggleCartItemCheck('${item.id}')"
-                class="w-5 h-5 rounded-md flex items-center justify-center ${item.checked ? 'coral-bg text-white' : 'border border-slate-300'}">
+              <div>
+                <h3 class="font-bold text-sm text-slate-800">${item.name}</h3>
+                <p class="text-[10px] text-slate-500 mt-0.5 leading-tight">${item.info || ''}</p>
+              </div>
+              <button onclick="toggleCartItemCheck('${item.id}')" class="w-5 h-5 rounded-md flex items-center justify-center shrink-0 ml-2 ${item.checked ? 'coral-bg text-white' : 'border border-slate-300'}">
                 ${item.checked ? '<i data-lucide="check" class="w-3.5 h-3.5"></i>' : ''}
               </button>
             </div>
-            <div class="flex items-center justify-between mt-4">
+            <div class="flex items-center justify-between mt-3">
               <p class="font-extrabold text-base text-slate-900">${(item.price * item.qty).toLocaleString()} Ks</p>
               <div class="flex items-center gap-3 text-sm font-bold text-slate-700">
                 <button onclick="changeQty('${item.id}', 1)" class="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center">+</button>
@@ -389,157 +322,80 @@
         `;
         list.appendChild(row);
       });
-
-      const total = getCheckedTotal();
-      document.getElementById('cart-total-display').textContent = `${total.toLocaleString()} Ks`;
+      document.getElementById('cart-total-display').textContent = `${getCheckedTotal().toLocaleString()} Ks`;
       lucide.createIcons();
     }
 
-    function toggleCartItemCheck(id) {
-      if (cart[id]) {
-        cart[id].checked = !cart[id].checked;
-        renderCartScreen();
-      }
-    }
-
+    function toggleCartItemCheck(id) { if (cart[id]) { cart[id].checked = !cart[id].checked; renderCartScreen(); } }
     function changeQty(id, delta) {
       if (!cart[id]) return;
       cart[id].qty += delta;
-      if (cart[id].qty <= 0) {
-        delete cart[id];
-      }
-      if (Object.keys(cart).length === 0) {
-        renderCatalog();
-        showScreen('screen-catalog');
-      } else {
-        renderCartScreen();
-        updateCartBadge();
-      }
+      if (cart[id].qty <= 0) delete cart[id];
+      if (Object.keys(cart).length === 0) { renderCatalog(); showScreen('screen-catalog'); }
+      else { renderCartScreen(); updateCartBadge(); }
     }
-
-    function getCheckedTotal() {
-      return Object.values(cart)
-        .filter(i => i.checked)
-        .reduce((sum, i) => sum + i.price * i.qty, 0);
-    }
+    function getCheckedTotal() { return Object.values(cart).filter(i => i.checked).reduce((sum, i) => sum + i.price * i.qty, 0); }
 
     function goToCheckout() {
-      if (getCheckedTotal() <= 0) {
-        alert('ဝယ်ယူမည့် ပစ္စည်းကို အမှန်ခြစ်ပေးပါ');
-        return;
-      }
+      if (getCheckedTotal() <= 0) return alert('ဝယ်ယူမည့် ပစ္စည်းကို အမှန်ခြစ်ပေးပါ');
       renderCheckoutOptions();
       document.getElementById('checkout-total-display').textContent = `${getCheckedTotal().toLocaleString()} Ks`;
       showScreen('screen-checkout');
     }
 
-    // ---------------- SCREEN 3: CHECKOUT ----------------
     function renderCheckoutOptions() {
-      // Shipping options
       const shipList = document.getElementById('shipping-list');
       shipList.innerHTML = '';
       shopData.shipping_options.forEach(opt => {
         const active = selectedShipping && selectedShipping.id === opt.id;
         const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.onclick = () => {
-          selectedShipping = opt;
-          renderCheckoutOptions();
-        };
-        btn.className = `py-2.5 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
-          active ? 'coral-border bg-rose-50/70 coral-text' : 'border-slate-200 text-slate-600 bg-slate-50'
-        }`;
+        btn.onclick = () => { selectedShipping = opt; renderCheckoutOptions(); };
+        btn.className = `py-2.5 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center ${active ? 'coral-border bg-rose-50/70 coral-text' : 'border-slate-200 text-slate-600 bg-slate-50'}`;
         btn.innerHTML = `<span>${opt.name}</span>`;
         shipList.appendChild(btn);
       });
+      document.getElementById('gate-inputs').classList.toggle('hidden', !(selectedShipping && selectedShipping.requires_gate));
 
-      const gateBox = document.getElementById('gate-inputs');
-      if (selectedShipping && (selectedShipping.requires_gate || selectedShipping.name.includes('ဂိတ်'))) {
-        gateBox.classList.remove('hidden');
-      } else {
-        gateBox.classList.add('hidden');
-      }
-
-      // Payment Methods
       const payList = document.getElementById('payment-list');
       payList.innerHTML = '';
       shopData.payment_methods.forEach(pm => {
         const active = selectedPayment && selectedPayment.id === pm.id;
         const div = document.createElement('div');
-        div.onclick = () => {
-          selectedPayment = pm;
-          renderCheckoutOptions();
-        };
+        div.onclick = () => { selectedPayment = pm; renderCheckoutOptions(); };
         div.className = 'flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer';
-        div.innerHTML = `
-          <div class="flex items-center gap-3">
-            <img src="${pm.logo}" class="w-9 h-9 rounded-lg object-cover border border-slate-200" />
-            <span class="font-bold text-sm text-slate-800">${pm.name}</span>
-          </div>
-          <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center ${active ? 'coral-border' : 'border-slate-300'}">
-            ${active ? '<div class="w-2.5 h-2.5 rounded-full coral-bg"></div>' : ''}
-          </div>
-        `;
+        div.innerHTML = `<div class="flex items-center gap-3"><img src="${pm.logo}" class="w-9 h-9 rounded-lg border" /><span class="font-bold text-sm text-slate-800">${pm.name}</span></div><div class="w-5 h-5 rounded-full border-2 flex items-center justify-center ${active ? 'coral-border' : 'border-slate-300'}">${active ? '<div class="w-2.5 h-2.5 rounded-full coral-bg"></div>' : ''}</div>`;
         payList.appendChild(div);
       });
     }
 
     function placeOrderToQR() {
-      const name = document.getElementById('cust-name').value.trim();
-      const phone1 = document.getElementById('cust-phone1').value.trim();
-      const address = document.getElementById('cust-address').value.trim();
-
-      if (!name || !phone1 || !address) {
-        alert('အမည်၊ ဖုန်းနံပါတ် နှင့် လိပ်စာ အပြည့်အစုံ ဖြည့်သွင်းပေးပါ');
-        return;
-      }
-
-      if (selectedShipping && (selectedShipping.requires_gate || selectedShipping.name.includes('ဂိတ်'))) {
-        const busLine = document.getElementById('bus-line-name').value.trim();
-        const gateName = document.getElementById('gate-station-name').value.trim();
-        if (!busLine || !gateName) {
-          alert('ကားဂိတ်အမည် နှင့် ဂိတ်အမည် ဖြည့်သွင်းပေးပါ');
-          return;
-        }
-      }
-
+      if (!document.getElementById('cust-name').value.trim() || !document.getElementById('cust-phone1').value.trim() || !document.getElementById('cust-address').value.trim()) return alert('အမည်၊ ဖုန်းနံပါတ် နှင့် လိပ်စာ အပြည့်အစုံ ဖြည့်သွင်းပေးပါ');
+      if (selectedShipping && selectedShipping.requires_gate && (!document.getElementById('bus-line-name').value.trim() || !document.getElementById('gate-station-name').value.trim())) return alert('ကားဂိတ်အမည် နှင့် ဂိတ်အမည် ဖြည့်သွင်းပေးပါ');
       if (selectedPayment) {
-        document.getElementById('qr-image').src = selectedPayment.qr || '/static/qr.jpg';
-        document.getElementById('pay-phone').textContent = selectedPayment.phone || '09664994195';
-        document.getElementById('pay-acc').textContent = selectedPayment.account_name || 'Thura';
+        document.getElementById('qr-image').src = selectedPayment.qr;
+        document.getElementById('pay-phone').textContent = selectedPayment.phone;
+        document.getElementById('pay-acc').textContent = selectedPayment.account_name;
       }
-
       showScreen('screen-qr');
     }
 
-    // ---------------- SCREEN 4: SLIP UPLOAD ----------------
     function handleSlipSelected(event) {
-      const file = event.target.files[0];
-      if (!file) return;
+      if (!event.target.files[0]) return;
       const reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = e => {
         document.getElementById('slip-preview-container').classList.add('hidden');
-        const img = document.getElementById('slip-preview-img');
-        img.src = e.target.result;
-        img.classList.remove('hidden');
+        document.getElementById('slip-preview-img').src = e.target.result;
+        document.getElementById('slip-preview-img').classList.remove('hidden');
         document.getElementById('btn-complete-payment').classList.remove('hidden');
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(event.target.files[0]);
     }
 
     async function submitFinalOrder() {
       const slipInput = document.getElementById('slip-file');
-      if (!slipInput.files[0]) {
-        alert('ငွေလွှဲပြေစာပုံ ထည့်သွင်းပေးပါ');
-        return;
-      }
-
+      if (!slipInput.files[0]) return alert('ငွေလွှဲပြေစာပုံ ထည့်သွင်းပေးပါ');
       const btn = document.getElementById('btn-complete-payment');
-      btn.disabled = true;
-      btn.textContent = 'ပေးပို့နေပါသည်...';
-
-      const checkedItems = Object.values(cart).filter(i => i.checked);
-      const total = getCheckedTotal();
+      btn.disabled = true; btn.textContent = 'ပေးပို့နေပါသည်...';
 
       const formData = new FormData();
       formData.append('name', document.getElementById('cust-name').value.trim());
@@ -550,8 +406,8 @@
       formData.append('bus_line', document.getElementById('bus-line-name').value.trim());
       formData.append('gate_name', document.getElementById('gate-station-name').value.trim());
       formData.append('payment_method', selectedPayment ? selectedPayment.name : 'KBZ Pay');
-      formData.append('total', total);
-      formData.append('items_json', JSON.stringify(checkedItems));
+      formData.append('total', getCheckedTotal());
+      formData.append('items_json', JSON.stringify(Object.values(cart).filter(i => i.checked)));
       formData.append('slip', slipInput.files[0]);
 
       try {
@@ -563,12 +419,8 @@
           document.getElementById('status-total').textContent = `${Number(result.order.total).toLocaleString()} Ks`;
           showScreen('screen-status');
         }
-      } catch (err) {
-        alert('Order ပေးပို့ရာတွင် အမှားအယွင်းရှိနေပါသည်');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'ငွေလွှဲမှုပြီးစီးပါပြီ';
-      }
+      } catch (err) { alert('အမှားအယွင်းရှိနေပါသည်'); }
+      btn.disabled = false; btn.textContent = 'ငွေလွှဲမှုပြီးစီးပါပြီ';
     }
 
     function resetAndGoHome() {
@@ -577,10 +429,14 @@
       document.getElementById('slip-preview-img').classList.add('hidden');
       document.getElementById('slip-preview-container').classList.remove('hidden');
       document.getElementById('btn-complete-payment').classList.add('hidden');
-      renderCatalog();
-      showScreen('screen-catalog');
+      document.getElementById('cust-name').value = '';
+      document.getElementById('cust-phone1').value = '';
+      document.getElementById('cust-phone2').value = '';
+      document.getElementById('cust-address').value = '';
+      document.getElementById('bus-line-name').value = '';
+      document.getElementById('gate-station-name').value = '';
+      renderCatalog(); showScreen('screen-catalog');
     }
-
     fetchShopData();
   </script>
 </body>
