@@ -12,7 +12,7 @@ from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import Bot, Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -32,7 +32,11 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 UPLOAD_DIR = os.path.join(STATIC_DIR, "uploads")
 DB_FILE = os.path.join(BASE_DIR, "database.json")
 
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+# Vercel ကဲ့သို့ Read-only environment များတွင် Error မတက်စေရန်
+try:
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+except OSError:
+    pass
 
 # ================= DATABASE SETUP =================
 def load_db():
@@ -65,8 +69,11 @@ def load_db():
         return data
 
 def save_db(data):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+    try:
+        with open(DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        print(f"Database save error (Read-only storage): {e}")
 
 # ================= IMAGE PROCESSING (FAST WHITE-BG REMOVER) =================
 def process_product_image(image_bytes: bytes, filename: str):
@@ -97,11 +104,14 @@ def process_product_image(image_bytes: bytes, filename: str):
         glow_color = "rgba(255, 90, 121, 0.35)"
 
     save_path = os.path.join(UPLOAD_DIR, filename)
-    img.save(save_path, "PNG")
+    try:
+        img.save(save_path, "PNG")
+    except Exception:
+        pass
     return f"/static/uploads/{filename}", bg_color, glow_color
 
-# ================= PDF GENERATOR =================
-def generate_order_pdf(order_data: dict, pdf_path: str):
+# ================= PDF GENERATOR (BYTES MEMORY) =================
+def generate_order_pdf_bytes(order_data: dict) -> bytes:
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -164,7 +174,7 @@ def generate_order_pdf(order_data: dict, pdf_path: str):
     pdf.cell(155, 11, "TOTAL PAYMENT ", border=1, align="R", fill=True)
     pdf.set_text_color(255, 90, 121)
     pdf.cell(35, 11, f"{int(order_data['total']):,} Ks", border=1, align="R", fill=True)
-    pdf.output(pdf_path)
+    return bytes(pdf.output())
 
 # ================= TELEGRAM BOT HANDLERS =================
 (
@@ -375,7 +385,10 @@ async def receive_pay_logo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.photo: return PAY_LOGO
     photo_file = await update.message.photo[-1].get_file()
     filename = f"pay_{uuid.uuid4().hex[:6]}.jpg"
-    await photo_file.download_to_drive(os.path.join(UPLOAD_DIR, filename))
+    try:
+        await photo_file.download_to_drive(os.path.join(UPLOAD_DIR, filename))
+    except Exception:
+        pass
     db = load_db()
     db["payment_methods"].append({
         "id": uuid.uuid4().hex[:6], "name": context.user_data["new_pay_name"],
@@ -397,40 +410,46 @@ async def startup_event():
     global telegram_app
     load_db()
     if BOT_TOKEN != "YOUR_TELEGRAM_BOT_TOKEN_HERE":
-        telegram_app = Application.builder().token(BOT_TOKEN).build()
-        conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("start", start_cmd)],
-            states={
-                ASK_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_username)],
-                ASK_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_password)],
-                MAIN_MENU: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu)],
-                PROD_PHOTO: [MessageHandler(filters.PHOTO, receive_prod_photo)],
-                PROD_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_prod_name)],
-                PROD_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_prod_info)],
-                PROD_CAT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_prod_cat)],
-                PROD_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_prod_price)],
-                ADD_CAT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_add_cat)],
-                MANAGE_PROD_SELECT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_manage_select)],
-                MANAGE_PROD_ACTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_manage_action)],
-                EDIT_PROD_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_edit_name)],
-                EDIT_PROD_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_edit_info)],
-                SHIP_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_ship_name)],
-                PAY_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_pay_name)],
-                PAY_LOGO: [MessageHandler(filters.PHOTO, receive_pay_logo)],
-            },
-            fallbacks=[CommandHandler("start", start_cmd)],
-        )
-        telegram_app.add_handler(conv_handler)
-        await telegram_app.initialize()
-        await telegram_app.start()
-        await telegram_app.updater.start_polling()
+        try:
+            telegram_app = Application.builder().token(BOT_TOKEN).build()
+            conv_handler = ConversationHandler(
+                entry_points=[CommandHandler("start", start_cmd)],
+                states={
+                    ASK_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_username)],
+                    ASK_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_password)],
+                    MAIN_MENU: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu)],
+                    PROD_PHOTO: [MessageHandler(filters.PHOTO, receive_prod_photo)],
+                    PROD_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_prod_name)],
+                    PROD_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_prod_info)],
+                    PROD_CAT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_prod_cat)],
+                    PROD_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_prod_price)],
+                    ADD_CAT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_add_cat)],
+                    MANAGE_PROD_SELECT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_manage_select)],
+                    MANAGE_PROD_ACTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_manage_action)],
+                    EDIT_PROD_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_edit_name)],
+                    EDIT_PROD_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_edit_info)],
+                    SHIP_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_ship_name)],
+                    PAY_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_pay_name)],
+                    PAY_LOGO: [MessageHandler(filters.PHOTO, receive_pay_logo)],
+                },
+                fallbacks=[CommandHandler("start", start_cmd)],
+            )
+            telegram_app.add_handler(conv_handler)
+            await telegram_app.initialize()
+            await telegram_app.start()
+            await telegram_app.updater.start_polling()
+        except Exception as e:
+            print(f"Telegram polling startup note: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    if telegram_app:
-        await telegram_app.updater.stop()
-        await telegram_app.stop()
-        await telegram_app.shutdown()
+    if telegram_app and telegram_app.updater:
+        try:
+            await telegram_app.updater.stop()
+            await telegram_app.stop()
+            await telegram_app.shutdown()
+        except Exception:
+            pass
 
 @app.get("/")
 async def serve_index():
@@ -451,10 +470,8 @@ async def submit_order(
     order_id = uuid.uuid4().hex[:6].upper()
     date_str = datetime.now().strftime("%d %b %Y")
 
-    slip_ext = os.path.splitext(slip.filename)[1] or ".jpg"
-    slip_filename = f"slip_{order_id}{slip_ext}"
-    slip_path = os.path.join(UPLOAD_DIR, slip_filename)
-    with open(slip_path, "wb") as f: f.write(await slip.read())
+    # ငွေလွှဲပြေစာပုံကို Server ထဲသို့ ဖိုင်အဖြစ်မသိမ်းဘဲ RAM (Bytes) ထဲသို့ ဖတ်ယူခြင်း
+    slip_bytes = await slip.read()
 
     order_data = {
         "order_id": order_id, "date": date_str, "name": name, "phone1": phone1, "phone2": phone2,
@@ -462,9 +479,9 @@ async def submit_order(
         "payment_method": payment_method, "total": total, "items": items,
     }
 
+    # PDF Invoice ကို Memory (Bytes) ထဲတွင်သာ တိုက်ရိုက်ထုတ်ခြင်း
     pdf_filename = f"Order_{order_id}.pdf"
-    pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)
-    generate_order_pdf(order_data, pdf_path)
+    pdf_bytes = generate_order_pdf_bytes(order_data)
 
     items_text = "\n".join([f"  • {i['name']} (x{i['qty']}) - {int(i['price']) * int(i['qty']):,} Ks" for i in items])
     gate_info = f"\n🚌 **ကားဂိတ်အမည်:** {bus_line}\n📍 **ဂိတ်အမည်:** {gate_name}" if bus_line else ""
@@ -476,16 +493,23 @@ async def submit_order(
         f"💳 **ငွေပေးချေမှု:** {payment_method}\n\n🛒 **မှာယူထားသော ပစ္စည်းများ:**\n{items_text}\n\n💰 **စုစုပေါင်း:** {total:,} Ks"
     )
 
+    # Telegram Bot မှတစ်ဆင့် Admin ဆီသို့ ပုံနှင့် PDF ကို Memory ကနေ တိုက်ရိုက်ပို့ခြင်း
     db = load_db()
-    if telegram_app and db["admin_chat_ids"]:
-        for chat_id in db["admin_chat_ids"]:
+    try:
+        bot = Bot(token=BOT_TOKEN)
+        for chat_id in db.get("admin_chat_ids", []):
             try:
-                with open(slip_path, "rb") as photo_f:
-                    await telegram_app.bot.send_photo(chat_id=chat_id, photo=photo_f, caption=msg_text, parse_mode="Markdown")
-                with open(pdf_path, "rb") as pdf_f:
-                    await telegram_app.bot.send_document(chat_id=chat_id, document=pdf_f, filename=pdf_filename)
-            except Exception as e:
-                print(f"Telegram send error: {e}")
+                photo_stream = io.BytesIO(slip_bytes)
+                photo_stream.name = slip.filename or "slip.jpg"
+                await bot.send_photo(chat_id=chat_id, photo=photo_stream, caption=msg_text, parse_mode="Markdown")
+
+                pdf_stream = io.BytesIO(pdf_bytes)
+                pdf_stream.name = pdf_filename
+                await bot.send_document(chat_id=chat_id, document=pdf_stream, filename=pdf_filename)
+            except Exception as ex:
+                print(f"Telegram send inner error: {ex}")
+    except Exception as e:
+        print(f"Telegram bot init error: {e}")
 
     return JSONResponse({"status": "success", "order": order_data})
 
